@@ -1,0 +1,13 @@
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<!-- Installed as /etc/avahi/services/dyson-pi.service.
+     The hostname itself (dyson-pi.local) is advertised by avahi automatically;
+     this adds a browsable HTTP service entry. -->
+<service-group>
+  <name replace-wildcards="yes">Dyson Pi dashboard on %h</name>
+  <service>
+    <type>_http._tcp</type>
+    <port>80</port>
+    <txt-record>path=/</txt-record>
+  </service>
+</service-group>

@@ -1,0 +1,129 @@
+# =============================================================================
+#  Dyson Pi configuration:  /etc/dyson-pi/config.yaml
+# =============================================================================
+#  Every key is optional; the value shown is the default.
+#  After editing:   sudo dysonctl config check && sudo systemctl restart dyson-pi
+#  If you change hardware.relay_pin / relay_active_low / presence_pin, re-run
+#  sudo /opt/dyson-pi/deploy/install.sh (it updates the boot-time GPIO states
+#  in config.txt and the failsafe), then reboot.
+#
+#  The dashboard "Calibration" page can override the press.* timings and
+#  sensor.debounce_ms / sensor.stability_s at runtime. Those overrides are
+#  stored in the database, not here, and the dashboard shows which are active.
+# =============================================================================
+
+hardware:
+  # auto = real GPIO on a Raspberry Pi, mock elsewhere.  gpio | mock to force.
+  # On a Pi, a GPIO failure is fatal (no silent fallback to mock).
+  backend: auto
+
+  # Actuator relay input: BCM numbering. GPIO17 = physical pin 11.
+  relay_pin: 17
+  # Most cheap relay modules switch ON when IN is pulled LOW (active-low).
+  # If your relay clicks ON at boot / OFF when "pressing", flip this.
+  relay_active_low: true
+
+  # Presence sensor dry contact: BCM numbering. GPIO27 = physical pin 13.
+  # The other contact goes to GND (pin 14). Internal pull-up is enabled:
+  # contact closed -> GPIO reads LOW.
+  presence_pin: 27
+  # true: contact CLOSED means the robot is at the dock.
+  # Set false if your sensor relay opens when the robot docks.
+  presence_closed_means_present: true
+
+press:
+  # One "press" = relay ON for this long, then OFF. Must be <= safety.hard_max_on_s.
+  press_duration_s: 1.0
+  # Gap between the wake press and the start press in "Double press" mode.
+  inter_press_delay_s: 2.5
+  # Smart start: after each press, wait this long for the sensor to confirm the
+  # robot left. Must be more than 1 s longer than debounce + stability.
+  departure_timeout_s: 20
+  # Smart start gives up (FAILED + dashboard alert) after this many presses.
+  # 2 = wake press + start press. It never keeps retrying beyond this.
+  max_presses: 2
+  # The Vis Nav sleeps after ~30 min without activity. Used ONLY as a hint on
+  # the dashboard ("probably asleep"); the sensor decides what really happened.
+  sleep_timeout_min: 30
+
+sensor:
+  # How often the presence contact is sampled.
+  poll_interval_ms: 20
+  # Raw contact must be steady this long to count (filters contact bounce).
+  debounce_ms: 200
+  # Debounced state must hold this long before the robot counts as
+  # docked/away (filters flicker while the robot docks or undocks).
+  stability_s: 3.0
+  # Sensor fault "flapping": this many changes within flap_window_s.
+  flap_max_changes: 6
+  flap_window_s: 60
+  # Sensor fault "stale": no docked/away change for this many hours.
+  # (Warning only: the robot may legitimately sit docked for days.)
+  stale_after_h: 72
+
+safety:
+  # Absolute maximum relay ON time, enforced in software regardless of the
+  # requested duration, plus a watchdog that forces the relay OFF.
+  hard_max_on_s: 3.0
+  # Minimum time between two press sequences.
+  cooldown_s: 5
+  # Max relay activations per local calendar day (catches runaway schedules
+  # or bugs). Includes test clicks. Resets at local midnight.
+  daily_press_limit: 20
+  # true = never energize the relay; everything else runs and is logged.
+  dry_run: false
+  # Length of the "Click relay" hardware test pulse.
+  test_pulse_s: 0.15
+
+scheduler:
+  # IANA timezone for schedules and the daily limit.
+  timezone: Europe/Budapest
+  # The Pi has no real-time clock: wait for NTP sync after boot before any
+  # schedule may fire. Runs missed while unsynced/off are skipped, never late.
+  require_ntp_sync: true
+  # A due run noticed later than this (e.g. system stall) is skipped.
+  misfire_grace_s: 60
+
+web:
+  host: 0.0.0.0
+  port: 80
+  # Dashboard login lifetime.
+  session_days: 30
+  # Only set true if you put HTTPS in front (reverse proxy).
+  cookie_secure: false
+
+network:
+  # NetworkManager connection created by install.sh for your phone hotspot.
+  connection_name: dyson-hotspot
+  interface: wlan0
+  # Watchdog: if the hotspot is unreachable this long, reconnect
+  # (then toggle the Wi-Fi radio, alternating, until it is back).
+  watchdog_down_minutes: 3
+
+paths:
+  state_dir: /var/lib/dyson-pi   # SQLite database, CLI token
+  log_dir: /var/log/dyson-pi     # rotating JSON log (also in journald)
+
+logging:
+  level: INFO
+  file_max_mb: 5
+  file_backups: 5
+  # Event history kept in the database.
+  event_retention_days: 180
+
+maintenance:
+  # counter: cylinder_actuations | relay_cycles | fan_hours | cleaning_runs | days
+  # "Mark serviced" in the dashboard resets that reminder's count and logs the date.
+  reminders:
+    - id: cylinder_seals
+      title: Inspect cylinder and seals
+      counter: cylinder_actuations
+      every: 2000
+    - id: air_supply
+      title: Check air supply, hoses and fittings
+      counter: days
+      every: 30
+    - id: fan_clean
+      title: Clean the cooling fan
+      counter: fan_hours
+      every: 1000

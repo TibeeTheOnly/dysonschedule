@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Dyson Pi</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">Dyson Pi <span id="conn" class="dot" title="live connection"></span></div>
+  <div id="clock" class="muted small"></div>
+</header>
+
+<div id="banners"></div>
+
+<main>
+<!-- ============================== HOME ============================== -->
+<section id="tab-home" class="tab active">
+  <div class="card robot" id="robot-card">
+    <div class="robot-state" id="robot-state">…</div>
+    <div class="muted" id="robot-since"></div>
+    <div class="small" id="robot-hint"></div>
+  </div>
+
+  <div class="actions">
+    <button class="btn primary huge" data-press="smart">▶ Smart start</button>
+    <div class="row3">
+      <button class="btn" data-press="single">Single press</button>
+      <button class="btn" data-press="double">Double press<br><span class="small">wake + start</span></button>
+      <button class="btn danger" data-press="force">Force press<br><span class="small">ignore sensor</span></button>
+    </div>
+  </div>
+
+  <div class="card" id="attempt-card">
+    <h3>Last start attempt</h3>
+    <div id="attempt"></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="label">Relay</span><span id="st-relay" class="value">–</span></div>
+    <div class="stat"><span class="label">CPU</span><span id="st-temp" class="value">–</span></div>
+    <div class="stat"><span class="label">Presses today</span><span id="st-today" class="value">–</span></div>
+    <div class="stat"><span class="label">IP</span><span id="st-ip" class="value small">–</span></div>
+  </div>
+
+  <div class="card">
+    <h3>Next schedules</h3>
+    <ul id="home-schedules" class="list"></ul>
+  </div>
+
+  <div class="card" id="sim-card" hidden>
+    <h3>Simulator <span class="badge">mock backend</span></h3>
+    <div class="row2">
+      <button class="btn" id="sim-dock">Robot docked</button>
+      <button class="btn" id="sim-away">Robot away</button>
+    </div>
+    <label class="switch-row"><input type="checkbox" id="sim-auto"> Simulated robot reacts to presses</label>
+    <label class="switch-row"><input type="checkbox" id="sim-awake"> Simulated robot is awake</label>
+    <div class="small muted" id="sim-state"></div>
+  </div>
+
+  <div class="card danger-zone">
+    <label class="switch-row big-switch">
+      <input type="checkbox" id="disable-toggle">
+      <span><b>Disable actuator</b><br><span class="small muted">Emergency stop: blocks every press until re-enabled</span></span>
+    </label>
+  </div>
+</section>
+
+<!-- ============================== SCHEDULES ============================== -->
+<section id="tab-schedules" class="tab">
+  <div class="card">
+    <h3>Schedules <span class="muted small" id="sched-tz"></span></h3>
+    <ul id="schedule-list" class="list"></ul>
+  </div>
+  <form class="card" id="schedule-form">
+    <h3 id="schedule-form-title">Add schedule</h3>
+    <input type="hidden" id="sf-id">
+    <label for="sf-name">Name</label>
+    <input id="sf-name" maxlength="60" placeholder="Morning clean">
+    <label>Days</label>
+    <div class="days" id="sf-days"></div>
+    <div class="row2">
+      <div><label for="sf-time">Time</label><input id="sf-time" type="time" required value="09:00"></div>
+      <div><label for="sf-mode">Action</label>
+        <select id="sf-mode">
+          <option value="smart">Smart start</option>
+          <option value="single">Single press</option>
+          <option value="double">Double press</option>
+        </select></div>
+    </div>
+    <div class="row2">
+      <button class="btn primary" type="submit">Save</button>
+      <button class="btn" type="button" id="sf-cancel">Clear</button>
+    </div>
+  </form>
+</section>
+
+<!-- ============================== HISTORY ============================== -->
+<section id="tab-history" class="tab">
+  <div class="card"><h3>Cleaning runs</h3><ul id="runs" class="list"></ul></div>
+  <div class="card"><h3>Press attempts</h3><ul id="attempts" class="list"></ul></div>
+  <div class="card">
+    <h3>Event log</h3>
+    <ul id="events" class="list log"></ul>
+    <button class="btn" id="events-more">Load older</button>
+  </div>
+</section>
+
+<!-- ============================== MAINTENANCE ============================== -->
+<section id="tab-maint" class="tab">
+  <div class="card"><h3>Counters</h3><div class="grid2" id="counters"></div></div>
+  <div class="card"><h3>Reminders</h3><ul id="reminders" class="list"></ul></div>
+  <div class="card"><h3>Service log</h3><ul id="service-log" class="list"></ul></div>
+</section>
+
+<!-- ============================== TOOLS ============================== -->
+<section id="tab-tools" class="tab">
+  <div class="card">
+    <h3>Hardware test</h3>
+    <div class="row2">
+      <button class="btn" id="t-relay">Click relay</button>
+      <button class="btn" id="t-sensor">Watch sensor 30 s</button>
+    </div>
+    <div id="sensor-live" class="sensor-live" hidden>
+      <div><span class="label">Raw contact</span><b id="sl-raw">–</b></div>
+      <div><span class="label">Settling to</span><b id="sl-pending">–</b></div>
+      <div><span class="label">Robot state</span><b id="sl-state">–</b></div>
+      <div class="small muted" id="sl-left"></div>
+    </div>
+    <div class="row2">
+      <button class="btn" id="t-smart-dry">Smart sequence (dry run)</button>
+      <button class="btn primary" id="t-smart">Smart sequence (real)</button>
+    </div>
+    <p class="small muted">The relay click energizes the valve briefly: the cylinder will move.</p>
+  </div>
+
+  <form class="card" id="cal-form">
+    <h3>Calibration</h3>
+    <div id="cal-fields"></div>
+    <div class="row3">
+      <button class="btn primary" type="submit">Save</button>
+      <button class="btn" type="button" id="cal-test">Test now</button>
+      <button class="btn" type="button" id="cal-reset">Reset</button>
+    </div>
+    <p class="small muted">Saved values override config.yaml (stored in the database). "Test now" runs a Single press with the current values.</p>
+  </form>
+
+  <div class="card">
+    <h3>API tokens</h3>
+    <ul id="tokens" class="list"></ul>
+    <div class="row2">
+      <input id="token-name" placeholder="name, e.g. iphone-shortcuts" maxlength="60">
+      <button class="btn" id="token-create">Create</button>
+    </div>
+    <pre id="token-new" class="token" hidden></pre>
+  </div>
+
+  <form class="card" id="pw-form">
+    <h3>Change password</h3>
+    <input type="password" id="pw-cur" placeholder="current password" autocomplete="current-password" required>
+    <input type="password" id="pw-new" placeholder="new password (8+ chars)" autocomplete="new-password" minlength="8" required>
+    <button class="btn" type="submit">Change</button>
+  </form>
+
+  <div class="card">
+    <h3>System</h3>
+    <div id="sysinfo" class="small"></div>
+    <div class="row2">
+      <a class="btn" href="/api/backup">Download backup</a>
+      <button class="btn" id="logout">Log out</button>
+    </div>
+  </div>
+</section>
+</main>
+
+<nav class="tabs">
+  <button data-tab="home" class="active">🏠<span>Home</span></button>
+  <button data-tab="schedules">🗓<span>Schedules</span></button>
+  <button data-tab="history">📜<span>History</span></button>
+  <button data-tab="maint">🛠<span>Service</span><i id="maint-badge" class="nbadge" hidden></i></button>
+  <button data-tab="tools">⚙️<span>Tools</span></button>
+</nav>
+
+<div id="toast" class="toast" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

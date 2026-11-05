@@ -1,0 +1,9 @@
+[Unit]
+Description=Dyson Pi - Wi-Fi hotspot connectivity watchdog
+After=NetworkManager.service
+
+[Service]
+Type=oneshot
+# Runs as root: nmcli needs privileges to bring connections up.
+ExecStart=/opt/dyson-pi/.venv/bin/dysonctl --config /etc/dyson-pi/config.yaml net-watchdog
+TimeoutStartSec=120
